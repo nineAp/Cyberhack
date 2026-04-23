@@ -1,0 +1,13 @@
+{
+  "name": "cyberhack-dev-env",
+  "scripts": {
+    "build:wasm": "wasm-pack build --target web",
+    "build:css": "npx @tailwindcss/cli -i styles.css -o pkg/cyberhack.css",
+    "copy:ts": "cp Cyberhack.tsx index.ts pkg/",
+    "build": "npm run build:wasm && npm run build:css && npm run copy:ts"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.4",
+    "tailwindcss": "^4.2.4"
+  }
+}

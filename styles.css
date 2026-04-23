@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-mono);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+  --radius-2xl: 2.5rem;
+  --radius-3xl: 3rem;
+}
+
+:root {
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.12 0 0);
+  --card: oklch(1 0 0 / 70%);
+  --card-foreground: oklch(0.12 0 0);
+  --popover: oklch(1 0 0 / 80%);
+  --popover-foreground: oklch(0.12 0 0);
+
+  /* Светлая тема */
+  /* Primary = Фиолетовый */
+  --primary: oklch(0.45 0.25 290);
+  --primary-foreground: oklch(0.985 0 0);
+  /* Secondary = Голубой */
+  --secondary: oklch(0.65 0.15 220);
+  --secondary-foreground: oklch(0.1 0 0);
+
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.92 0.05 290);
+  --accent-foreground: oklch(0.45 0.25 290);
+  --border: oklch(0.9 0 0 / 50%);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.45 0.25 290);
+}
+
+.dark {
+  --background: oklch(0.1 0.01 260);
+  --foreground: oklch(0.98 0 0);
+
+  --card: oklch(0.14 0.02 260 / 50%);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.12 0.02 260 / 80%);
+  --popover-foreground: oklch(0.98 0 0);
+
+  /* ТЕПЕРЬ PRIMARY = ФИОЛЕТОВЫЙ */
+  --primary: oklch(0.65 0.25 290);
+  --primary-foreground: oklch(0.98 0 0);
+
+  /* ТЕПЕРЬ SECONDARY = CYAN */
+  --secondary: oklch(0.85 0.15 190);
+  --secondary-foreground: oklch(0.1 0.01 260);
+
+  --muted: oklch(0.18 0.02 260);
+  --muted-foreground: oklch(0.85 0.02 260);
+
+  --accent: oklch(0.2 0.04 260);
+  --accent-foreground: oklch(0.98 0 0);
+
+  --border: oklch(0.25 0.03 260 / 60%);
+  --input: oklch(0.2 0.03 260 / 50%);
+  --ring: oklch(0.65 0.25 290);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-neon-cyan {
+    color: #ffffff;
+    text-shadow:
+      0 0 2px #fff,
+      0 0 8px #00f0ff,
+      0 0 15px #00f0ff,
+      0 0 30px #00f0ff;
+  }
+
+  .text-neon-purple {
+    color: #ffffff;
+    text-shadow:
+      0 0 2px #fff,
+      0 0 8px #8b3dff,
+      0 0 15px #8b3dff,
+      0 0 30px #8b3dff;
+  }
+
+  .light .text-neon-cyan {
+    color: #0284c7;
+    text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);
+  }
+
+  .light .text-neon-purple {
+    color: #6d28d9;
+    text-shadow: 0 0 5px rgba(139, 61, 255, 0.4);
+  }
+
+  .animate-neon-flicker {
+    animation: neon-flicker 4s infinite alternate ease-in-out;
+  }
+}
+
+@keyframes neon-flicker {
+  0%,
+  18%,
+  22%,
+  25%,
+  53%,
+  57%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  24%,
+  55% {
+    opacity: 0.6;
+  }
+}
