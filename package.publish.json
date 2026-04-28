@@ -1,37 +1,29 @@
 {
   "name": "cyberhack",
-
   "type": "module",
-
-  "version": "0.1.4",
-
-  "main": "cyberhack.js",
-
-  "types": "index.ts",
-
+  "version": "0.1.7",
+  "main": "./cyberhack.js",
+  "module": "./cyberhack.js",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    },
+    "./wasm": "./cyberhack.js",
+    "./cyberhack.css": {
+      "import": "./cyberhack.css",
+      "require": "./cyberhack.css",
+      "default": "./cyberhack.css"
+    }
+  },
   "files": [
     "cyberhack_bg.wasm",
-
     "cyberhack.js",
-
     "cyberhack.d.ts",
-
     "cyberhack.css",
-
     "Cyberhack.tsx",
-
     "index.ts",
-
     "snippets/*"
-  ],
-
-  "exports": {
-    ".": "./index.ts",
-
-    "./wasm": "./cyberhack.js",
-
-    "./style": "./cyberhack.css"
-  },
-
-  "sideEffects": ["./snippets/*", "**/*.css"]
+  ]
 }

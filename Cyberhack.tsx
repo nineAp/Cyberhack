@@ -31,9 +31,8 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
   theme,
   onComplete,
 }) => {
-  const containerId = useRef(
-    `cyberhack-${Math.random().toString(36).substring(7)}`,
-  );
+  // 🔥 Упростили ID для надежности монтирования
+  const containerId = useRef("cyberhack-core-container");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const initialized = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -65,7 +64,6 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
     resize();
 
     const draw = () => {
-      // Полупрозрачный фон для эффекта "шлейфа" с учетом темы
       ctx.globalAlpha = 0.15;
       ctx.fillStyle = theme?.background || "#05020a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -77,7 +75,6 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
         const x = i * fontSize;
         const y = drops[i] * fontSize;
 
-        // Динамические цвета символов (Primary и Secondary из темы)
         if (Math.random() > 0.98) {
           ctx.globalAlpha = 0.9;
           ctx.fillStyle = theme?.primary || "#8b3dff";
@@ -104,34 +101,52 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
     };
   }, [theme]);
 
-  // Инициализация WASM Yew (с обходом строгой статической проверки сборщика)
+  // Инициализация WASM Yew
   useEffect(() => {
-    if (!initialized.current) {
-      // Изолируем пути к файлам через переменные, чтобы сборщик не падал,
-      // если WASM файл еще физически не существует.
-      const wasmModulePath = "./cyberhack.js";
-      const cssModulePath = "./cyberhack.css";
+    let isActive = true;
 
+    if (!initialized.current) {
       Promise.all([
         //@ts-ignore
-        import("cyberhack/wasm"), // Мы прописали это в exports package.json
-        //@ts-ignore
-        import("cyberhack/style").catch(() => {}),
+        import("cyberhack/wasm"),
       ])
         .then(([wasmModule]) => {
+          if (!isActive) return;
+
           const init = wasmModule.default;
           const initCyberHack = wasmModule.initCyberHack;
 
           init().then(() => {
-            const config = {
-              redirect_url: redirectUrl,
-              base_value: baseValue,
-              time_limit: timeLimit,
-              locale,
-              theme,
-            };
-            initCyberHack(containerId.current, JSON.stringify(config));
-            initialized.current = true;
+            if (!isActive) return;
+
+            // 🔥 ИСПРАВЛЕНО: Ждем пока браузер 100% отрендерит DOM
+            requestAnimationFrame(() => {
+              const el = document.getElementById(containerId.current);
+
+              // Защита от паники Rust: если элемента нет, прерываемся
+              if (!el) {
+                console.error(
+                  "[Cyberhack] Контейнер для монтирования WASM не найден в DOM.",
+                );
+                return;
+              }
+
+              const config = {
+                redirect_url: redirectUrl,
+                base_value: baseValue,
+                time_limit: timeLimit,
+                locale,
+                theme,
+              };
+
+              try {
+                initCyberHack(containerId.current, JSON.stringify(config));
+                initialized.current = true;
+              } catch (e) {
+                console.error("WASM Init Error:", e);
+                setLoadError("Ошибка при запуске ядра.");
+              }
+            });
           });
         })
         .catch((e) => {
@@ -152,7 +167,11 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener("message", handleMessage);
+    };
   }, [redirectUrl, baseValue, timeLimit, locale, theme, onComplete]);
 
   return (
