@@ -7,127 +7,100 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-mono);
-  --font-heading: var(--font-mono);
-
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.5rem;
-  --radius-xl: 2rem;
-  --radius-2xl: 2.5rem;
-  --radius-3xl: 3rem;
 }
 
 :root {
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.12 0 0);
-  --card: oklch(1 0 0 / 70%);
-  --card-foreground: oklch(0.12 0 0);
-  --popover: oklch(1 0 0 / 80%);
-  --popover-foreground: oklch(0.12 0 0);
-
-  /* Светлая тема */
-  /* Primary = Фиолетовый */
-  --primary: oklch(0.45 0.25 290);
-  --primary-foreground: oklch(0.985 0 0);
-  /* Secondary = Голубой */
-  --secondary: oklch(0.65 0.15 220);
-  --secondary-foreground: oklch(0.1 0 0);
-
+  --primary: #8b3dff;
+  --secondary: #00f0ff;
   --muted: oklch(0.95 0 0);
-  --muted-foreground: oklch(0.45 0 0);
   --accent: oklch(0.92 0.05 290);
-  --accent-foreground: oklch(0.45 0.25 290);
   --border: oklch(0.9 0 0 / 50%);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.45 0.25 290);
 }
 
 .dark {
-  --background: oklch(0.1 0.01 260);
+  --background: oklch(0.05 0.01 260);
   --foreground: oklch(0.98 0 0);
-
-  --card: oklch(0.14 0.02 260 / 50%);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0.02 260 / 80%);
-  --popover-foreground: oklch(0.98 0 0);
-
-  /* ТЕПЕРЬ PRIMARY = ФИОЛЕТОВЫЙ */
-  --primary: oklch(0.65 0.25 290);
-  --primary-foreground: oklch(0.98 0 0);
-
-  /* ТЕПЕРЬ SECONDARY = CYAN */
-  --secondary: oklch(0.85 0.15 190);
-  --secondary-foreground: oklch(0.1 0.01 260);
-
+  --primary: #8b3dff;
+  --secondary: #00f0ff;
   --muted: oklch(0.18 0.02 260);
-  --muted-foreground: oklch(0.85 0.02 260);
-
   --accent: oklch(0.2 0.04 260);
-  --accent-foreground: oklch(0.98 0 0);
-
   --border: oklch(0.25 0.03 260 / 60%);
-  --input: oklch(0.2 0.03 260 / 50%);
-  --ring: oklch(0.65 0.25 290);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
   }
 }
 
+/* Динамические классы, которые подхватывают CSS-переменные из React/Yew */
 @layer utilities {
   .text-neon-cyan {
-    color: #ffffff;
+    color: var(--secondary);
     text-shadow:
-      0 0 2px #fff,
-      0 0 8px #00f0ff,
-      0 0 15px #00f0ff,
-      0 0 30px #00f0ff;
+      0 0 5px var(--secondary),
+      0 0 10px var(--secondary),
+      0 0 20px var(--secondary);
   }
-
   .text-neon-purple {
-    color: #ffffff;
+    color: var(--primary);
     text-shadow:
-      0 0 2px #fff,
-      0 0 8px #8b3dff,
-      0 0 15px #8b3dff,
-      0 0 30px #8b3dff;
+      0 0 5px var(--primary),
+      0 0 10px var(--primary),
+      0 0 20px var(--primary);
   }
 
-  .light .text-neon-cyan {
-    color: #0284c7;
-    text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);
+  .border-neon-cyan {
+    border-color: var(--secondary);
+  }
+  .border-neon-purple {
+    border-color: var(--primary);
   }
 
-  .light .text-neon-purple {
-    color: #6d28d9;
-    text-shadow: 0 0 5px rgba(139, 61, 255, 0.4);
+  .bg-neon-cyan {
+    background-color: var(--secondary);
+  }
+  .bg-neon-purple {
+    background-color: var(--primary);
+  }
+
+  .shadow-neon-cyan {
+    box-shadow: 0 0 15px var(--secondary);
+  }
+  .shadow-neon-purple {
+    box-shadow: 0 0 15px var(--primary);
   }
 
   .animate-neon-flicker {
     animation: neon-flicker 4s infinite alternate ease-in-out;
   }
+
+  .hover-glitch:hover {
+    animation: text-glitch 0.2s linear infinite;
+    position: relative;
+  }
+}
+
+/* CRT Эффекты */
+.crt-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background:
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%),
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03),
+      rgba(0, 255, 0, 0.01),
+      rgba(0, 0, 255, 0.03)
+    );
+  background-size:
+    100% 4px,
+    3px 100%;
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
 }
 
 @keyframes neon-flicker {
@@ -144,5 +117,27 @@
   24%,
   55% {
     opacity: 0.6;
+    text-shadow: none;
+  }
+}
+
+@keyframes text-glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 1px);
+  }
+  40% {
+    transform: translate(-1px, -1px);
+  }
+  60% {
+    transform: translate(2px, 1px);
+  }
+  80% {
+    transform: translate(1px, -1px);
+  }
+  100% {
+    transform: translate(0);
   }
 }

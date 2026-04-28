@@ -29,33 +29,32 @@ pub struct Dictionary {
 fn get_dict(lang: &str) -> Dictionary {
     match lang {
         "en" => Dictionary {
-            title: "Breach Protocol",
-            buffer: "BUFFER:",
-            act_horiz: "Activation: Horizontal",
-            act_vert: "Activation: Vertical",
-            demons: "Available Daemons",
-            level: "Level",
+            title: "BREACH PROTOCOL",
+            buffer: "BUFFER_ALLOCATION:",
+            act_horiz: "SEQ_ACT: HORIZONTAL",
+            act_vert: "SEQ_ACT: VERTICAL",
+            demons: "DAEMON_UPLOADS",
+            level: "LVL",
             loaded: "UPLOADED",
             waiting: "STANDBY",
-            reward: "Reward",
-            time_left: "TIME LEFT:",
-            success: "Breach successful. Disconnecting...",
-            fail: "FAILURE: Time limit exceeded...",
+            reward: "BOUNTY",
+            time_left: "SYS_TIMER:",
+            success: "BREACH SUCCESSFUL. DISCONNECTING...",
+            fail: "CRITICAL FAILURE. TRACING...",
         },
         _ => Dictionary {
-            // Fallback на русский
-            title: "Взлом протокола",
-            buffer: "БУФЕР ОБМЕНА:",
-            act_horiz: "Активация: Горизонталь",
-            act_vert: "Активация: Вертикаль",
-            demons: "Доступные Демоны",
-            level: "Уровень",
+            title: "ВЗЛОМ ПРОТОКОЛА",
+            buffer: "БУФЕР_ОБМЕНА:",
+            act_horiz: "АКТИВ_СЕКВ: ГОРИЗОНТАЛЬ",
+            act_vert: "АКТИВ_СЕКВ: ВЕРТИКАЛЬ",
+            demons: "ДОСТУПНЫЕ_ДЕМОНЫ",
+            level: "УР",
             loaded: "ЗАГРУЖЕНО",
             waiting: "ОЖИДАНИЕ",
-            reward: "Награда",
-            time_left: "ОСТАЛОСЬ ВРЕМЕНИ:",
-            success: "Взлом завершен. Разрыв соединения...",
-            fail: "СБОЙ: Время истекло...",
+            reward: "НАГРАДА",
+            time_left: "ТАЙМЕР_СИСТЕМЫ:",
+            success: "ВЗЛОМ ЗАВЕРШЕН. РАЗРЫВ СОЕДИНЕНИЯ...",
+            fail: "КРИТИЧЕСКАЯ ОШИБКА. ИДЕТ ОТСЛЕДЖИВАНИЕ...",
         },
     }
 }
@@ -162,6 +161,11 @@ pub fn calculate_coins(base_value: u32, completed_targets: &[usize]) -> u32 {
         .sum()
 }
 
+// Генерация фейкового адреса памяти для декораций
+fn generate_hex_address(index: usize) -> String {
+    format!("0x{:04X}", 0x00A0 + (index * 0x14))
+}
+
 #[function_component(CyberHackGame)]
 pub fn cyber_hack_game(props: &GameProps) -> Html {
     let board_state = use_state(|| generate_solvable_board());
@@ -175,7 +179,6 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
     let game_over = use_state(|| false);
     let completed_targets = use_state(|| HashSet::<usize>::new());
 
-    // Инициализируем таймер значением из конфига (React props)
     let time_left = use_state(|| props.config.time_limit);
     let is_timer_running = use_state(|| false);
 
@@ -225,7 +228,7 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
                     }
 
                     let url = format!("{}?coins={}", redirect_url, total_coins);
-                    Timeout::new(2000, move || {
+                    Timeout::new(2500, move || {
                         let _ = win.location().assign(&url);
                     })
                     .forget();
@@ -234,7 +237,6 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         )
     };
 
-    // Эффект обратного отсчета таймера
     {
         let time_left = time_left.clone();
         let is_timer_running = is_timer_running.clone();
@@ -277,7 +279,6 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
             if *game_over {
                 return;
             }
-            // Запускаем таймер при первом клике
             if !*is_timer_running {
                 is_timer_running.set(true);
             }
@@ -321,125 +322,242 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         })
     };
 
+    let time_percentage = (*time_left as f32 / props.config.time_limit as f32) * 100.0;
+    let is_critical_time = *time_left <= 5 && *is_timer_running;
+
     html! {
-        <div style={custom_style} class="flex flex-col md:flex-row gap-8 items-start justify-center p-8 bg-background text-foreground font-mono min-h-screen dark">
-            <div class="flex flex-col gap-6 w-full max-w-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-3xl font-bold text-neon-purple animate-neon-flicker uppercase tracking-widest m-0">
-                        { dict.title }
-                    </h1>
+        <div style={custom_style} class="flex flex-col xl:flex-row gap-8 items-start justify-center p-4 md:p-8 text-foreground font-mono min-h-screen w-full relative z-10 max-w-7xl mx-auto">
 
-                    <div class="flex flex-col items-end">
-                        <div class="text-xs text-muted-foreground uppercase tracking-widest mb-1">
-                            { dict.time_left }
+            <div class="flex flex-col gap-6 w-full max-w-2xl relative">
+
+                // Декоративные углы терминала
+                <div class="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-neon-cyan opacity-70"></div>
+                <div class="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-neon-cyan opacity-70"></div>
+                <div class="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-neon-cyan opacity-70"></div>
+                <div class="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-neon-cyan opacity-70"></div>
+
+                <div class="backdrop-blur-md bg-[#0a0510]/80 p-6 md:p-8 border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
+                    // Технический хедер
+                    <div class="flex items-center gap-4 mb-6 border-b border-white/10 pb-4">
+                        <div class="flex gap-1">
+                            <div class="w-8 h-2 bg-neon-cyan"></div>
+                            <div class="w-2 h-2 bg-neon-cyan"></div>
+                            <div class="w-1 h-2 bg-white/50"></div>
                         </div>
-                        <div class="w-24 h-10 flex items-center justify-center bg-card border-2 border-primary rounded shadow-md text-xl font-bold text-neon-cyan font-mono tracking-wider">
-                            { format!("00:{:02}", *time_left) }
+                        <h1 class="text-3xl md:text-5xl font-bold text-white tracking-[0.2em] uppercase m-0 flex-1 drop-shadow-md">
+                            { dict.title }
+                        </h1>
+                        <div class="text-[10px] text-white/30 text-right leading-tight hidden md:block">
+                            <p>{"SYS_VER: 2.0.4b"}</p>
+                            <p>{"AUTH_REQ: ROOT"}</p>
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-card border border-border p-4 rounded-lg shadow-xl">
-                    <div class="text-sm text-muted-foreground mb-2">{ dict.buffer }</div>
-                    <div class="flex gap-2 mb-4">
-                        { for buffer.iter().map(|token| html! {
-                            <div class="w-10 h-10 flex items-center justify-center border-2 border-primary bg-primary text-primary-foreground font-bold">
-                                { token }
-                            </div>
-                        }) }
-                        { for (buffer.len()..MAX_BUFFER).map(|_| html! {
-                            <div class="w-10 h-10 border-2 border-muted bg-transparent"></div>
-                        }) }
-                    </div>
-
-                    <div class="text-sm font-bold tracking-widest uppercase">
-                        { if *is_row_turn {
-                            html! { <span class="text-neon-cyan">{ dict.act_horiz }</span> }
-                        } else {
-                            html! { <span class="text-neon-purple">{ dict.act_vert }</span> }
-                        } }
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-2 p-4 bg-popover rounded-lg border border-border">
-                    { for matrix.iter().enumerate().map(|(r, row)| html! {
-                        <div class="flex gap-2">
-                            { for row.iter().enumerate().map(|(c, token)| {
-                                let is_used = used_cells.contains(&(r, c));
-                                let is_active = if *is_row_turn { r == *active_index } else { c == *active_index };
-                                let can_click = is_active && !is_used && !*game_over;
-
-                                let mut cell_classes = vec!["w-12", "h-12", "flex", "items-center", "justify-center", "text-lg", "font-bold", "border", "transition-colors", "cursor-pointer"];
-
-                                if is_used {
-                                    cell_classes.push("opacity-20");
-                                    cell_classes.push("bg-muted");
-                                    cell_classes.push("cursor-not-allowed");
-                                } else if can_click {
-                                    if *is_row_turn {
-                                        cell_classes.push("border-secondary");
-                                        cell_classes.push("text-neon-cyan");
-                                        cell_classes.push("hover:bg-secondary");
-                                    } else {
-                                        cell_classes.push("border-primary");
-                                        cell_classes.push("text-neon-purple");
-                                        cell_classes.push("hover:bg-primary");
-                                    }
+                    // Таймер и статус
+                    <div class="flex justify-between items-end mb-4">
+                        <div class="flex flex-col">
+                            <div class="text-sm font-bold tracking-widest flex items-center gap-2">
+                                { if *is_row_turn {
+                                    html! { <><div class="w-3 h-3 bg-neon-cyan animate-pulse"></div><span class="text-neon-cyan">{ dict.act_horiz }</span></> }
                                 } else {
-                                    cell_classes.push("border-transparent");
-                                    cell_classes.push("text-muted-foreground");
-                                    cell_classes.push("opacity-50");
-                                }
+                                    html! { <><div class="w-3 h-3 bg-neon-purple animate-pulse"></div><span class="text-neon-purple">{ dict.act_vert }</span></> }
+                                } }
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="text-xs text-white/50 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                <span class="animate-pulse opacity-50">{"[ REC ]"}</span>
+                                { dict.time_left }
+                            </div>
+                            <div class={classes!(
+                                "text-3xl", "font-bold", "font-mono", "tracking-wider", "transition-colors", "duration-300",
+                                if is_critical_time { vec!["text-red-500", "animate-pulse", "drop-shadow-[0_0_8px_red]"] } else { vec!["text-white", "drop-shadow-md"] }
+                            )}>
+                                { format!("00:{:02}", *time_left) }
+                            </div>
+                        </div>
+                    </div>
 
-                                let onclick = {
-                                    let on_cell_click = on_cell_click.clone();
-                                    Callback::from(move |_| if can_click { on_cell_click.emit((r, c)) })
-                                };
+                    // PROGRESS BAR ТАЙМЕРА
+                    <div class="w-full h-1 bg-white/5 overflow-hidden mb-8 relative">
+                        <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNCIgaGVpZ2h0PSI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9InJnYmEoMCwwLDAsMC41KSIvPjwvc3ZnPg==')] z-10 pointer-events-none"></div>
+                        <div
+                            class={classes!(
+                                "h-full", "transition-all", "duration-1000", "ease-linear", "relative", "z-0",
+                                if is_critical_time { vec!["bg-red-500", "shadow-[0_0_15px_red]"] } else { vec!["bg-neon-cyan", "shadow-[0_0_15px_cyan]"] }
+                            )}
+                            style={format!("width: {}%", time_percentage)}
+                        ></div>
+                    </div>
 
-                                html! { <div class={classes!(cell_classes)} onclick={onclick}>{ token }</div> }
+                    // БУФЕР ОБМЕНА
+                    <div class="bg-black/80 border-t border-b border-white/10 py-4 mb-8 relative">
+                        <div class="text-xs text-neon-cyan/70 mb-2 tracking-widest px-4">{ dict.buffer }</div>
+                        <div class="flex gap-2 px-4 items-center">
+                            { for buffer.iter().map(|token| html! {
+                                <div class="w-12 h-12 flex items-center justify-center border-2 border-neon-cyan bg-neon-cyan/10 text-neon-cyan font-bold text-xl shadow-[0_0_10px_rgba(0,240,255,0.3)]">
+                                    { token }
+                                </div>
+                            }) }
+
+                            // Пустые слоты и мигающий курсор
+                            { for (buffer.len()..MAX_BUFFER).map(|i| html! {
+                                <div class="w-12 h-12 flex items-center justify-center border-2 border-white/5 bg-white/5 relative">
+                                    { if i == buffer.len() && !*game_over {
+                                        html! { <div class="w-4 h-1 bg-neon-cyan animate-pulse absolute bottom-2"></div> }
+                                    } else { html! {} } }
+                                </div>
                             }) }
                         </div>
-                    }) }
+                    </div>
+
+                    // ИГРОВАЯ МАТРИЦА
+                    <div class="flex justify-center p-4 relative">
+                        // Сетка матрицы (декорация)
+                        <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+
+                        <div class="flex flex-col gap-3 relative z-10">
+                            { for matrix.iter().enumerate().map(|(r, row)| html! {
+                                <div class="flex gap-3 relative">
+                                    // Подсветка активной строки
+                                    { if *is_row_turn && r == *active_index && !*game_over {
+                                        html! { <div class="absolute -inset-y-1 -inset-x-2 bg-secondary/20 border-y border-secondary/40 shadow-[0_0_10px_rgba(0,240,255,0.1)] pointer-events-none"></div> }
+                                    } else { html!{} } }
+
+                                    { for row.iter().enumerate().map(|(c, token)| {
+                                        let is_used = used_cells.contains(&(r, c));
+                                        let is_active = if *is_row_turn { r == *active_index } else { c == *active_index };
+                                        let can_click = is_active && !is_used && !*game_over;
+
+                                        let mut cell_classes = vec!["w-12", "h-12", "md:w-16", "md:h-16", "flex", "items-center", "justify-center", "text-xl", "md:text-2xl", "font-bold", "border-2", "transition-all", "duration-100", "relative", "z-10", "tracking-wider"];
+
+                                        if is_used {
+                                            cell_classes.push("opacity-10");
+                                            cell_classes.push("cursor-not-allowed");
+                                            cell_classes.push("border-transparent");
+                                        } else if can_click {
+                                            cell_classes.push("cursor-pointer");
+                                            cell_classes.push("hover-glitch");
+                                            cell_classes.push("hover:scale-105");
+                                            if *is_row_turn {
+                                                cell_classes.push("border-secondary");
+                                                cell_classes.push("text-neon-cyan");
+                                                cell_classes.push("bg-secondary/10");
+                                                cell_classes.push("hover:bg-secondary/30");
+                                                cell_classes.push("shadow-[0_0_15px_rgba(0,240,255,0.4)]");
+                                            } else {
+                                                cell_classes.push("border-primary");
+                                                cell_classes.push("text-neon-purple");
+                                                cell_classes.push("bg-primary/10");
+                                                cell_classes.push("hover:bg-primary/30");
+                                                cell_classes.push("shadow-[0_0_15px_rgba(139,61,255,0.4)]");
+                                            }
+                                        } else {
+                                            cell_classes.push("border-transparent");
+                                            cell_classes.push("text-white/40");
+                                            cell_classes.push("cursor-default");
+                                        }
+
+                                        let onclick = {
+                                            let on_cell_click = on_cell_click.clone();
+                                            Callback::from(move |_| if can_click { on_cell_click.emit((r, c)) })
+                                        };
+
+                                        html! {
+                                            <div class={classes!(cell_classes)} onclick={onclick}>
+                                                { token }
+                                            </div>
+                                        }
+                                    }) }
+                                </div>
+                            }) }
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex flex-col gap-4 w-full max-w-sm mt-16">
-                <div class="text-lg font-bold border-b border-border pb-2 mb-2 text-neon-cyan uppercase tracking-widest">
-                    { dict.demons }
+            // ПРАВАЯ ПАНЕЛЬ (ДЕМОНЫ)
+            <div class="flex flex-col gap-4 w-full max-w-sm mt-4 xl:mt-0 relative">
+                <div class="backdrop-blur-md bg-[#0a0510]/80 p-6 border border-white/5 shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                    <div class="text-lg font-bold border-b border-white/20 pb-2 mb-4 text-white uppercase tracking-widest flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-neon-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                            { dict.demons }
+                        </div>
+                        <div class="text-[10px] text-white/30">{"MEM_DUMP"}</div>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        { for targets.iter().enumerate().map(|(i, target)| {
+                            let is_completed = completed_targets.contains(&i);
+                            let reward = props.config.base_value * (i as u32 + 1);
+                            let mem_address = generate_hex_address(i);
+
+                            html! {
+                                <div class={classes!(
+                                    "flex", "flex-col", "gap-2", "p-4", "border-l-4", "border-y", "border-r", "transition-all", "duration-500", "relative", "overflow-hidden",
+                                    if is_completed { vec!["border-l-neon-cyan", "border-y-neon-cyan/20", "border-r-neon-cyan/20", "bg-neon-cyan/5"] } else { vec!["border-l-white/20", "border-y-white/5", "border-r-white/5", "bg-white/5"] }
+                                )}>
+                                    // Декоративный фон для завершенного демона
+                                    { if is_completed {
+                                        html! { <div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(0,240,255,0.05)_50%,transparent_75%)] bg-[size:20px_20px] pointer-events-none"></div> }
+                                    } else { html! {} } }
+
+                                    <div class="flex justify-between text-[10px] uppercase tracking-wider relative z-10">
+                                        <span class="text-white/40">{ mem_address }</span>
+                                        <span class={if is_completed { "text-neon-cyan font-bold" } else { "text-white/30" }}>
+                                            { if is_completed { dict.loaded } else { dict.waiting } }
+                                        </span>
+                                    </div>
+                                    <div class="flex gap-3 relative z-10">
+                                        { for target.iter().map(|token| html! {
+                                            <span class={classes!(
+                                                "font-bold", "text-xl", "tracking-wider",
+                                                if is_completed { vec!["text-neon-cyan", "drop-shadow-[0_0_5px_cyan]"] } else { vec!["text-white/80"] }
+                                            )}>{ token }</span>
+                                        }) }
+                                    </div>
+                                    <div class="text-xs text-neon-purple mt-2 flex justify-between relative z-10 border-t border-white/10 pt-2">
+                                        <span>{ dict.reward }</span>
+                                        <span class="font-bold">{ format!("{} ₴", reward) }</span>
+                                    </div>
+                                </div>
+                            }
+                        }) }
+                    </div>
                 </div>
 
-                { for targets.iter().enumerate().map(|(i, target)| {
-                    let is_completed = completed_targets.contains(&i);
-                    let reward = props.config.base_value * (i as u32 + 1);
-
-                    html! {
-                        <div class={classes!(
-                            "flex", "flex-col", "gap-2", "p-3", "border", "rounded",
-                            if is_completed { vec!["border-neon-cyan", "bg-secondary/10"] } else { vec!["border-muted"] }
-                        )}>
-                            <div class="flex justify-between text-xs text-muted-foreground uppercase tracking-wider">
-                                <span>{ format!("{} {}", dict.level, i + 1) }</span>
-                                <span class={if is_completed { "text-neon-cyan font-bold" } else { "" }}>
-                                    { if is_completed { dict.loaded } else { dict.waiting } }
-                                </span>
-                            </div>
-                            <div class="flex gap-2">
-                                { for target.iter().map(|token| html! {
-                                    <span class={classes!(
-                                        "font-bold",
-                                        if is_completed { vec!["text-neon-cyan", "text-shadow"] } else { vec!["text-foreground"] }
-                                    )}>{ token }</span>
-                                }) }
-                            </div>
-                            <div class="text-xs text-neon-purple mt-1">{ format!("{}: {} ₴", dict.reward, reward) }</div>
-                        </div>
-                    }
-                }) }
-
+                // ПЛАШКА ЗАВЕРШЕНИЯ (появляется поверх экрана)
                 { if *game_over {
                     html! {
-                        <div class="mt-8 p-4 bg-primary text-primary-foreground font-bold text-center animate-pulse uppercase tracking-widest border border-neon-purple shadow-[0_0_15px_#8b3dff]">
-                            { if *time_left == 0 { dict.fail } else { dict.success } }
+                        <div class="absolute inset-0 flex items-center justify-center z-50">
+                            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+                            <div class={classes!(
+                                "p-6", "text-center", "font-bold", "uppercase", "tracking-widest", "border-2", "shadow-2xl", "relative", "z-10", "w-full", "max-w-md",
+                                if *time_left == 0 { vec!["bg-red-950/90", "text-red-500", "border-red-500", "shadow-[0_0_40px_red]"] }
+                                else { vec!["bg-purple-950/90", "text-neon-cyan", "border-neon-cyan", "shadow-[0_0_40px_cyan]"] }
+                            )}>
+                                // Декоративные глитч-полосы на плашке
+                                <div class="absolute top-0 left-0 w-full h-1 bg-white/20 animate-pulse"></div>
+                                <div class="absolute bottom-0 left-0 w-full h-1 bg-white/20 animate-pulse"></div>
+
+                                <div class={classes!(
+                                    "text-3xl", "mb-2", "drop-shadow-lg",
+                                    if *time_left == 0 { "animate-pulse" } else { "" }
+                                )}>
+                                    { if *time_left == 0 { "SYSTEM LOCKOUT" } else { "ACCESS GRANTED" } }
+                                </div>
+                                <div class="text-xs opacity-90 text-white/80">{ if *time_left == 0 { dict.fail } else { dict.success } }</div>
+
+                                { if *time_left > 0 {
+                                    html! {
+                                        <div class="mt-6 border-t border-white/20 pt-4 text-neon-purple">
+                                            <div>{"TOTAL BOUNTY SECURED:"}</div>
+                                            <div class="text-2xl mt-1">{ format!("{} ₴", calculate_coins(props.config.base_value, &completed_targets.iter().copied().collect::<Vec<usize>>())) }</div>
+                                        </div>
+                                    }
+                                } else { html! {} } }
+                            </div>
                         </div>
                     }
                 } else { html! {} } }

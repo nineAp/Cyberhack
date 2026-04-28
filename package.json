@@ -1,13 +1,17 @@
 {
   "name": "cyberhack-dev-env",
+  "version": "0.1.0",
   "scripts": {
+    "dev": "pnpm dlx concurrently \"pnpm run watch:css\" \"trunk serve --port 8080 --open\"",
+    "watch:css": "tailwindcss -i styles.css -o main.css --watch",
     "build:wasm": "wasm-pack build --target web",
-    "build:css": "npx @tailwindcss/cli -i styles.css -o pkg/cyberhack.css",
+    "build:css": "tailwindcss -i styles.css -o pkg/cyberhack.css",
     "copy:ts": "cp Cyberhack.tsx index.ts pkg/",
-    "build": "npm run build:wasm && npm run build:css && npm run copy:ts"
+    "build": "pnpm run build:wasm && pnpm run build:css && pnpm run copy:ts"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.4",
-    "tailwindcss": "^4.2.4"
+    "tailwindcss": "^4.2.4",
+    "concurrently": "^8.2.2"
   }
 }
