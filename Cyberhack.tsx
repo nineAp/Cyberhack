@@ -113,8 +113,10 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
       const cssModulePath = "./cyberhack.css";
 
       Promise.all([
-        import(/* @vite-ignore */ wasmModulePath),
-        import(/* @vite-ignore */ cssModulePath).catch(() => {}),
+        //@ts-ignore
+        import("cyberhack/wasm"), // Мы прописали это в exports package.json
+        //@ts-ignore
+        import("cyberhack/style").catch(() => {}),
       ])
         .then(([wasmModule]) => {
           const init = wasmModule.default;
