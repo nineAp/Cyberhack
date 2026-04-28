@@ -1,0 +1,37 @@
+{
+  "name": "cyberhack",
+
+  "type": "module",
+
+  "version": "0.1.4",
+
+  "main": "cyberhack.js",
+
+  "types": "index.ts",
+
+  "files": [
+    "cyberhack_bg.wasm",
+
+    "cyberhack.js",
+
+    "cyberhack.d.ts",
+
+    "cyberhack.css",
+
+    "Cyberhack.tsx",
+
+    "index.ts",
+
+    "snippets/*"
+  ],
+
+  "exports": {
+    ".": "./index.ts",
+
+    "./wasm": "./cyberhack.js",
+
+    "./style": "./cyberhack.css"
+  },
+
+  "sideEffects": ["./snippets/*", "**/*.css"]
+}
