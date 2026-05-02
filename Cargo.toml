@@ -26,5 +26,7 @@ features = [
   "Location", 
   "Element", 
   "HtmlElement",
-  "MessageEvent"
+  "MessageEvent",
+  "HtmlCanvasElement",
+  "CanvasRenderingContext2d"
 ]

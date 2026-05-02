@@ -175,37 +175,20 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
   }, [redirectUrl, baseValue, timeLimit, locale, theme, onComplete]);
 
   return (
-    <div
-      className="dark relative w-full h-screen overflow-hidden bg-[#05020a] font-mono"
-      style={{
-        backgroundColor: theme?.background || "#05020a",
-        color: theme?.foreground || "#ffffff",
-      }}
-    >
+    <div className="dark relative w-full h-screen overflow-hidden bg-[#05020a]">
       {loadError && (
-        <div className="absolute top-0 left-0 w-full bg-red-900 text-white text-xs p-2 text-center z-[100] border-b border-red-500">
+        <div className="absolute top-0 left-0 w-full bg-red-900 text-white text-xs p-2 text-center z-[100]">
           {loadError}
         </div>
       )}
 
-      {/* Анимированный Canvas фон */}
-      <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-80" />
-
-      {/* Радиальный градиент для фокусировки в центре */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at center, transparent 0%, ${theme?.background || "rgba(5,2,10,0.8)"} 100%)`,
-        }}
-      ></div>
-
-      {/* Yew App Контейнер */}
+      {/* Теперь просто контейнер, WASM сам нарисует и фон, и игру */}
       <div
         id={containerId.current}
         className="relative z-10 w-full h-full flex items-center justify-center overflow-auto"
       ></div>
 
-      {/* Оверлей монитора CRT */}
+      {/* Оставляем только CRT оверлей, если ты не перенес его в Rust-верстку */}
       <div className="crt-overlay pointer-events-none absolute inset-0 z-50"></div>
     </div>
   );
