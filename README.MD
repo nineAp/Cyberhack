@@ -1,6 +1,5 @@
 ![Cyberhack Preview](./images/preview.png)
 
-````markdown
 # Cyberhack: Breach Protocol 👾
 
 A high-performance, React-ready WebAssembly port of the iconic "Breach Protocol" hacking minigame from Cyberpunk 2077.
@@ -16,7 +15,6 @@ npm install cyberhack
 yarn add cyberhack
 pnpm add cyberhack
 ```
-````
 
 ## 🚀 Usage (React / Next.js)
 
@@ -24,8 +22,8 @@ The library provides a ready-to-use React component. **Important:** Don't forget
 
 ```tsx
 import React from "react";
-import { Cyberhack, CyberhackResult } from "@nineap/cyberhack";
-import "@nineap/cyberhack/cyberhack.css"; // Required for styling
+import { Cyberhack, CyberhackResult } from "cyberhack";
+import "cyberhack/cyberhack.css"; // Required for styling
 
 const App = () => {
   const handleComplete = (result: CyberhackResult) => {
@@ -50,10 +48,12 @@ const App = () => {
 export default App;
 ```
 
+The component dynamically imports the WASM module on mount, so it must run client-side (mark the page/component `"use client"` in Next.js App Router, which `Cyberhack.tsx` already does).
+
 ## ⚙️ Component Props
 
 | Prop          | Type                                | Default      | Description                                                            |
-| :------------ | :---------------------------------- | :----------- | :--------------------------------------------------------------------- |
+| :------------ | :----------------------------------- | :----------- | :--------------------------------------------------------------------- |
 | `redirectUrl` | `string`                            | **Required** | The URL to redirect the user to upon completion (passes `?coins=...`). |
 | `baseValue`   | `number`                            | **Required** | Base reward value. Multiplied by daemon level (1x, 2x, 3x).            |
 | `timeLimit`   | `number`                            | **Required** | Time limit in seconds. The timer starts on the first cell click.       |
@@ -77,6 +77,13 @@ You can override the default Cyberpunk colors (Purple and Cyan) by passing a `th
 />
 ```
 
+## 🎮 How it works
+
+- The core game (board generation, breach rules, timer, scoring) is implemented once in Rust as a Yew component (`src/lib.rs`) and compiled to WebAssembly.
+- `Cyberhack.tsx` is a thin React client component: it lazy-loads the WASM module, mounts it into an internal `<div>`, and bridges results back via `window.postMessage` — there is no direct JS↔Rust callback binding.
+- The 5×5 board is always generated as a *solvable* puzzle: a random zig-zag path (alternating row/column moves, exactly like the real buffer rules) is walked across the matrix first, and the three daemon targets are cut out of that same path, so completing them all in one sequence is always possible.
+- Reward for a completed daemon is `baseValue * (daemon index + 1)` — later/longer daemons are worth more.
+
 ## 🛠 Local Development & Building
 
 If you want to clone this repository and build the module yourself, you will need **Rust**, `wasm-pack`, and **Node.js** installed.
@@ -84,7 +91,7 @@ If you want to clone this repository and build the module yourself, you will nee
 1. **Clone the repo and navigate to it:**
 
    ```bash
-   git clone [https://github.com/nineap/cyberhack.git](https://github.com/nineap/cyberhack.git)
+   git clone https://github.com/nineap/cyberhack.git
    cd cyberhack
    ```
 
@@ -99,3 +106,25 @@ If you want to clone this repository and build the module yourself, you will nee
    ```bash
    npm run build
    ```
+
+4. **Run the standalone debug page (optional):**
+   Uses [Trunk](https://trunkrs.dev/) to serve `index.html`, which auto-mounts a debug instance of the game (see `run_app()` in `src/lib.rs`) with hot CSS reloading.
+   ```bash
+   npm run dev
+   ```
+
+### Available scripts
+
+| Script               | Description                                                                 |
+| :------------------- | :---------------------------------------------------------------------------- |
+| `npm run dev`         | Watches Tailwind CSS and serves the debug page via Trunk on port 8080.        |
+| `npm run build:wasm`  | Compiles `src/lib.rs` to WebAssembly with `wasm-pack`.                        |
+| `npm run build:css`   | Builds the Tailwind CSS bundle into `pkg/cyberhack.css`.                      |
+| `npm run build`       | Full production build: wasm + css + copies TS wrappers + syncs `package.json`.|
+| `npm run release`     | Bumps the patch version and runs a full build.                                |
+
+Rust unit tests (board generation, reward math, i18n fallback) live in `src/lib.rs` and run with:
+
+```bash
+cargo test
+```

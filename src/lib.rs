@@ -6,11 +6,15 @@ use wasm_bindgen::prelude::*;
 use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement};
 use yew::prelude::*;
 
+/// Пул символов, из которых собирается матрица взлома (аналог кодов из Cyberpunk 2077).
 const TOKENS: &[&str] = &["1C", "55", "BD", "E9", "7A"];
+/// Матрица всегда квадратная GRID_SIZE x GRID_SIZE.
 const GRID_SIZE: usize = 5;
+/// Максимальная длина буфера — сколько символов игрок успевает вписать до конца игры.
 const MAX_BUFFER: usize = 7;
 
 // --- 1. ЛОКАЛИЗАЦИЯ (i18n) ---
+/// Набор всех текстовых строк интерфейса для одного языка.
 pub struct Dictionary {
     pub title: &'static str,
     pub buffer: &'static str,
@@ -26,6 +30,9 @@ pub struct Dictionary {
     pub fail: &'static str,
 }
 
+/// Возвращает словарь для переданного кода языка.
+/// Любой язык, кроме `"en"`, откатывается на русский — так `locale` в конфиге
+/// можно не валидировать на стороне JS.
 fn get_dict(lang: &str) -> Dictionary {
     match lang {
         "en" => Dictionary {
@@ -60,6 +67,8 @@ fn get_dict(lang: &str) -> Dictionary {
 }
 
 // --- 2. КОНФИГУРАЦИЯ И ЦВЕТА ---
+/// Переопределение цветовой схемы. Любое поле, оставленное `None`,
+/// подставляется дефолтным неоновым значением в месте использования.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct ThemeConfig {
     pub primary: Option<String>,
@@ -68,10 +77,15 @@ pub struct ThemeConfig {
     pub foreground: Option<String>,
 }
 
+/// Конфигурация игры, приходящая из JS-обертки как JSON
+/// (см. `init_cyber_hack`).
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct GameConfig {
+    /// Куда редиректить пользователя после окончания игры (получит `?coins=N`).
     pub redirect_url: String,
+    /// Базовая награда; итоговая награда за демона = base_value * (уровень демона).
     pub base_value: u32,
+    /// Лимит времени в секундах. Таймер стартует по первому клику, а не сразу.
     pub time_limit: u32,
     pub locale: Option<String>,
     pub theme: Option<ThemeConfig>,
@@ -87,6 +101,8 @@ pub struct BgProps {
     pub theme: Option<ThemeConfig>,
 }
 
+/// Итог партии, который уходит наружу через `window.postMessage`
+/// (см. `end_game` в `CyberHackGame`).
 #[derive(Serialize)]
 struct GameResult {
     completed_targets: Vec<usize>,
@@ -95,13 +111,21 @@ struct GameResult {
 }
 
 // --- 3. ИГРОВАЯ ЛОГИКА ---
+/// Генерирует случайную матрицу токенов и три цели ("демона"), которые
+/// гарантированно решаемы.
+///
+/// Гарантия решаемости достигается тем, что мы сначала честно проходим
+/// случайный зигзаг-маршрут по матрице (чередуя горизонтальный/вертикальный
+/// шаг, как того требуют правила буфера), а уже потом нарезаем этот маршрут
+/// на три перекрывающихся отрезка-цели. Игрок в теории может повторить
+/// именно этот путь и закрыть все три цели одним проходом.
 fn generate_solvable_board() -> (Vec<Vec<String>>, Vec<Vec<String>>) {
     let mut rng = rand::thread_rng();
     let mut matrix = vec![vec![String::new(); GRID_SIZE]; GRID_SIZE];
 
-    for r in 0..GRID_SIZE {
-        for c in 0..GRID_SIZE {
-            matrix[r][c] = TOKENS.choose(&mut rng).unwrap().to_string();
+    for row in matrix.iter_mut() {
+        for cell in row.iter_mut() {
+            *cell = TOKENS.choose(&mut rng).unwrap().to_string();
         }
     }
 
@@ -135,6 +159,11 @@ fn generate_solvable_board() -> (Vec<Vec<String>>, Vec<Vec<String>>) {
         active_idx = if is_row { r } else { c };
     }
 
+    // Отрезки специально пересекаются (0..2, 2..5, 3..7) — как в оригинальной
+    // игре, где более длинные/ценные цели делят часть последовательности с
+    // более короткими. Фолбэки на случай короткого path (маршрут упёрся в
+    // уже занятые клетки) не обязаны быть решаемыми — это край случай, а не
+    // основной сценарий.
     let t1 = if path.len() >= 2 {
         path[0..2].to_vec()
     } else {
@@ -159,6 +188,10 @@ fn generate_solvable_board() -> (Vec<Vec<String>>, Vec<Vec<String>>) {
     (matrix, vec![t1, t2, t3])
 }
 
+/// Фоновая "матричная" анимация (падающие hex-символы) на `<canvas>`.
+/// Отрисовка идёт напрямую через Canvas2D API, а не через Yew-виртуальный
+/// DOM — перерисовывать 2500+ символов 30 раз в секунду через диффинг
+/// виртуального DOM было бы на порядок дороже.
 #[function_component(MatrixBackground)]
 fn matrix_background(props: &BgProps) -> Html {
     let canvas_ref = use_node_ref();
@@ -215,7 +248,7 @@ fn matrix_background(props: &BgProps) -> Html {
                 let mut rng = rand::thread_rng();
 
                 ctx.set_global_alpha(0.15);
-                ctx.set_fill_style(&JsValue::from_str(&bg_color));
+                ctx.set_fill_style_str(&bg_color);
                 ctx.fill_rect(0.0, 0.0, width, height);
 
                 ctx.set_font(&format!("{}px monospace", font_size));
@@ -228,10 +261,10 @@ fn matrix_background(props: &BgProps) -> Html {
 
                     if rng.gen_bool(0.02) {
                         ctx.set_global_alpha(0.9);
-                        ctx.set_fill_style(&JsValue::from_str(&primary));
+                        ctx.set_fill_style_str(&primary);
                     } else {
                         ctx.set_global_alpha(0.4);
-                        ctx.set_fill_style(&JsValue::from_str(&secondary));
+                        ctx.set_fill_style_str(&secondary);
                     }
 
                     let _ = ctx.fill_text(&text, x, y);
@@ -257,6 +290,11 @@ fn matrix_background(props: &BgProps) -> Html {
     }
 }
 
+/// Суммирует награду за все выполненные цели.
+///
+/// Индекс цели (0, 1, 2...) выступает её "уровнем": цель с индексом `idx`
+/// стоит `base_value * (idx + 1)`, так что более длинные/поздние демоны
+/// в списке всегда ценнее.
 pub fn calculate_coins(base_value: u32, completed_targets: &[usize]) -> u32 {
     completed_targets
         .iter()
@@ -264,23 +302,27 @@ pub fn calculate_coins(base_value: u32, completed_targets: &[usize]) -> u32 {
         .sum()
 }
 
-// Генерация фейкового адреса памяти для декораций
+/// Генерация фейкового адреса памяти для декораций (чисто визуальный
+/// хакерский антураж, на игровую логику не влияет).
 fn generate_hex_address(index: usize) -> String {
     format!("0x{:04X}", 0x00A0 + (index * 0x14))
 }
 
+/// Корневой Yew-компонент игры: рендерит матрицу, буфер, список целей и
+/// таймер, а также владеет всей игровой логикой (какие клики валидны, когда
+/// засчитывать цель, когда завершать партию).
 #[function_component(CyberHackGame)]
 pub fn cyber_hack_game(props: &GameProps) -> Html {
-    let board_state = use_state(|| generate_solvable_board());
+    let board_state = use_state(generate_solvable_board);
     let matrix = &board_state.0;
     let targets = &board_state.1;
 
-    let buffer = use_state(|| Vec::<String>::new());
+    let buffer = use_state(Vec::<String>::new);
     let is_row_turn = use_state(|| true);
     let active_index = use_state(|| 0usize);
-    let used_cells = use_state(|| HashSet::<(usize, usize)>::new());
+    let used_cells = use_state(HashSet::<(usize, usize)>::new);
     let game_over = use_state(|| false);
-    let completed_targets = use_state(|| HashSet::<usize>::new());
+    let completed_targets = use_state(HashSet::<usize>::new);
 
     let time_left = use_state(|| props.config.time_limit);
     let is_timer_running = use_state(|| false);
@@ -289,6 +331,10 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
     let dict = get_dict(lang);
 
     let mut custom_style = String::new();
+    // Пробрасываем тему как CSS-переменные инлайн-стилем на корневой div,
+    // а не через инлайн-цвета на каждый элемент — так весь Tailwind-класс
+    // вида `text-primary`/`bg-secondary` в разметке ниже подхватывает кастомную
+    // тему без дублирования логики.
     if let Some(ref theme) = props.config.theme {
         if let Some(ref c) = theme.primary {
             custom_style.push_str(&format!("--primary: {}; ", c));
@@ -304,6 +350,11 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         }
     }
 
+    // Завершает партию ровно один раз (охраняется через game_over), шлёт
+    // результат родительскому окну через postMessage (так React-обёртка
+    // получает его в обработчике `message`, см. Cyberhack.tsx) и через
+    // 2.5с редиректит — задержка нужна, чтобы игрок успел увидеть плашку
+    // ACCESS GRANTED / SYSTEM LOCKOUT перед уходом со страницы.
     let end_game = {
         let game_over = game_over.clone();
         let redirect_url = props.config.redirect_url.clone();
@@ -340,6 +391,10 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         )
     };
 
+    // Таймер реализован как цепочка одиночных Timeout на 1с вместо одного
+    // Interval: эффект перезапускается на каждое изменение time_left, что
+    // автоматически даёт паузу при game_over/is_timer_running=false — не
+    // нужно вручную останавливать/возобновлять интервал.
     {
         let time_left = time_left.clone();
         let is_timer_running = is_timer_running.clone();
@@ -366,6 +421,12 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         });
     }
 
+    // Обработка клика по клетке матрицы: правила Breach Protocol — ходы
+    // строго чередуются горизонталь/вертикаль, а следующий разрешённый ряд
+    // или столбец задаётся координатой только что выбранной клетки.
+    // Совпадение цели проверяется через `contains` на строке буфера —
+    // цель не обязана быть суффиксом, ей достаточно встретиться где-либо
+    // внутри собранной последовательности.
     let on_cell_click = {
         let buffer = buffer.clone();
         let is_row_turn = is_row_turn.clone();
@@ -680,6 +741,9 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
     }
 }
 
+/// Точка входа, которую дергает JS-обертка (`Cyberhack.tsx`) после
+/// инициализации wasm-модуля. Монтирует `CyberHackGame` в DOM-элемент
+/// с указанным `element_id`, распарсив конфиг из JSON-строки.
 #[wasm_bindgen(js_name = initCyberHack)]
 pub fn init_cyber_hack(element_id: &str, config_json: &str) -> Result<(), JsValue> {
     let window = web_sys::window().unwrap();
@@ -697,6 +761,13 @@ pub fn init_cyber_hack(element_id: &str, config_json: &str) -> Result<(), JsValu
     Ok(())
 }
 
+/// `#[wasm_bindgen(start)]` запускает эту функцию автоматически сразу после
+/// загрузки wasm-модуля — то есть при каждом `init()` из JS, а не только
+/// в `trunk serve`. `Renderer::with_props` без `with_root` монтирует
+/// компонент в `document.body`. Это используется для локальной отладки
+/// через `trunk serve` (см. `npm run dev`), но означает, что у любого
+/// потребителя npm-пакета эта debug-игра тоже отрендерится в body в
+/// дополнение к игре, смонтированной через `initCyberHack`.
 #[wasm_bindgen(start)]
 pub fn run_app() {
     let debug_config = GameConfig {

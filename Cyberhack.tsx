@@ -15,14 +15,24 @@ export interface CyberhackResult {
 }
 
 export interface CyberhackProps {
+  /** URL для редиректа после игры, получит `?coins=<total_coins>`. */
   redirectUrl: string;
+  /** Базовая награда; итоговая награда за демона = baseValue * (уровень демона). */
   baseValue: number;
+  /** Лимит в секундах. Таймер стартует по первому клику, а не при монтировании. */
   timeLimit: number;
   locale?: "ru" | "en";
   theme?: CyberhackTheme;
+  /** Вызывается один раз по окончании партии (успех или провал по таймеру). */
   onComplete?: (result: CyberhackResult) => void;
 }
 
+/**
+ * React-обертка над Breach Protocol на Rust/Yew/WASM.
+ * Сама не рендерит игру — динамически подгружает wasm-модуль и монтирует
+ * его в контейнер `<div id={containerId}>` ниже, а результат партии
+ * получает обратно через window.postMessage (см. handleMessage).
+ */
 export const Cyberhack: React.FC<CyberhackProps> = ({
   redirectUrl,
   baseValue,
@@ -37,7 +47,11 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
   const initialized = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Эффект Canvas для кибер-фона (Hex-дождь с поддержкой динамической темы)
+  // Кибер-фон (hex-дождь) рисуется здесь, в React, отдельным canvas'ом —
+  // до того, как загрузится и смонтируется WASM-игра (которая рисует свой
+  // собственный такой же фон внутри контейнера). Так пользователь не видит
+  // пустой экран во время загрузки wasm-бандла.
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -101,7 +115,11 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
     };
   }, [theme]);
 
-  // Инициализация WASM Yew
+  // Инициализация WASM Yew.
+  // `initialized` — обычный ref, а не state: он должен пережить повторные
+  // срабатывания этого эффекта (например при смене props в зависимостях
+  // ниже) и не провоцировать лишний рендер, иначе initCyberHack вызвался бы
+  // повторно и Yew попытался бы смонтировать игру поверх уже смонтированной.
   useEffect(() => {
     let isActive = true;
 
@@ -157,6 +175,11 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
         });
     }
 
+    // Rust-сторона не имеет прямой ссылки на React-callback onComplete,
+    // поэтому результат партии передается через window.postMessage
+    // (см. `end_game` в src/lib.rs) и здесь разбирается обратно в объект.
+    // try/catch молча проглатывает чужие message-события (от расширений
+    // браузера, HMR и т.п.), которые не являются нашим JSON-результатом.
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data) as CyberhackResult;
