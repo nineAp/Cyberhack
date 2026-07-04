@@ -9,8 +9,11 @@ export interface CyberhackTheme {
 }
 
 export interface CyberhackResult {
+  session_id?: string | null;
   completed_targets: number[];
   buffer: string[];
+  /** Последовательность реально принятых кликов (row, col) в порядке совершения. */
+  path: [number, number][];
   total_coins: number;
 }
 
@@ -23,6 +26,15 @@ export interface CyberhackProps {
   timeLimit: number;
   locale?: "ru" | "en";
   theme?: CyberhackTheme;
+  /**
+   * Server-authoritative режим: доска и цели, присланные бэкендом. Если
+   * заданы оба поля, игра не генерирует доску сама — сервер уже знает эту
+   * доску и сверит `onComplete`-результат по своей копии, не доверяя
+   * присланному `total_coins`. `sessionId` уходит обратно в `onComplete`.
+   */
+  matrix?: string[][];
+  targets?: string[][];
+  sessionId?: string;
   /** Вызывается один раз по окончании партии (успех или провал по таймеру). */
   onComplete?: (result: CyberhackResult) => void;
 }
@@ -39,6 +51,9 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
   timeLimit,
   locale = "ru",
   theme,
+  matrix,
+  targets,
+  sessionId,
   onComplete,
 }) => {
   // 🔥 Упростили ID для надежности монтирования
@@ -155,6 +170,9 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
                 time_limit: timeLimit,
                 locale,
                 theme,
+                matrix,
+                targets,
+                session_id: sessionId,
               };
 
               try {
@@ -195,7 +213,17 @@ export const Cyberhack: React.FC<CyberhackProps> = ({
       isActive = false;
       window.removeEventListener("message", handleMessage);
     };
-  }, [redirectUrl, baseValue, timeLimit, locale, theme, onComplete]);
+  }, [
+    redirectUrl,
+    baseValue,
+    timeLimit,
+    locale,
+    theme,
+    matrix,
+    targets,
+    sessionId,
+    onComplete,
+  ]);
 
   return (
     <div className="dark relative w-full h-screen overflow-hidden bg-[#05020a]">

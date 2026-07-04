@@ -89,6 +89,16 @@ pub struct GameConfig {
     pub time_limit: u32,
     pub locale: Option<String>,
     pub theme: Option<ThemeConfig>,
+    /// Доска и цели, присланные сервером (server-authoritative режим): если
+    /// оба поля заданы, локальная генерация (`generate_solvable_board`)
+    /// пропускается — сервер уже знает эту доску и сам пересчитает очки из
+    /// `GameResult::path`, не доверяя `total_coins` от клиента. `None` —
+    /// офлайн/дебажный режим (см. `run_app`), доска генерируется на месте.
+    pub matrix: Option<Vec<Vec<String>>>,
+    pub targets: Option<Vec<Vec<String>>>,
+    /// Идентификатор игровой сессии, выданный сервером вместе с matrix/targets —
+    /// уходит обратно в `GameResult`, чтобы сервер знал, какую доску сверять.
+    pub session_id: Option<String>,
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -103,10 +113,20 @@ pub struct BgProps {
 
 /// Итог партии, который уходит наружу через `window.postMessage`
 /// (см. `end_game` в `CyberHackGame`).
+///
+/// `total_coins` здесь — только для локального/дебажного отображения
+/// (`run_app`, где никакого сервера нет). В server-authoritative режиме
+/// потребитель (`HackGame.tsx`) обязан отправлять на бэкенд `session_id` и
+/// `path`, а не `total_coins` — сервер сам реплеит путь по своей копии
+/// матрицы/целей и считает награду, не доверяя числу от клиента.
 #[derive(Serialize)]
 struct GameResult {
+    session_id: Option<String>,
     completed_targets: Vec<usize>,
     buffer: Vec<String>,
+    /// Последовательность реально принятых кликов `(row, col)` в порядке
+    /// совершения — то, что сервер реплеит для валидации.
+    path: Vec<(usize, usize)>,
     total_coins: u32,
 }
 
@@ -313,11 +333,20 @@ fn generate_hex_address(index: usize) -> String {
 /// засчитывать цель, когда завершать партию).
 #[function_component(CyberHackGame)]
 pub fn cyber_hack_game(props: &GameProps) -> Html {
-    let board_state = use_state(generate_solvable_board);
+    // Server-authoritative режим: если бэкенд прислал matrix+targets, играем
+    // строго на них (сервер хранит свою копию и пересчитает результат сам).
+    // Без них — локальная генерация (только офлайн/дебажный `run_app`).
+    let server_board = props
+        .config
+        .matrix
+        .clone()
+        .zip(props.config.targets.clone());
+    let board_state = use_state(|| server_board.unwrap_or_else(generate_solvable_board));
     let matrix = &board_state.0;
     let targets = &board_state.1;
 
     let buffer = use_state(Vec::<String>::new);
+    let path = use_state(Vec::<(usize, usize)>::new);
     let is_row_turn = use_state(|| true);
     let active_index = use_state(|| 0usize);
     let used_cells = use_state(HashSet::<(usize, usize)>::new);
@@ -359,9 +388,14 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         let game_over = game_over.clone();
         let redirect_url = props.config.redirect_url.clone();
         let base_value = props.config.base_value;
+        let session_id = props.config.session_id.clone();
 
         Callback::from(
-            move |(final_buffer, final_completed): (Vec<String>, HashSet<usize>)| {
+            move |(final_buffer, final_completed, final_path): (
+                Vec<String>,
+                HashSet<usize>,
+                Vec<(usize, usize)>,
+            )| {
                 if *game_over {
                     return;
                 }
@@ -371,8 +405,10 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
                 let total_coins = calculate_coins(base_value, &completed_vec);
 
                 let result = GameResult {
+                    session_id: session_id.clone(),
                     completed_targets: completed_vec,
                     buffer: final_buffer,
+                    path: final_path,
                     total_coins,
                 };
 
@@ -401,6 +437,7 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
         let game_over = game_over.clone();
         let end_game = end_game.clone();
         let buffer = buffer.clone();
+        let path = path.clone();
         let completed_targets = completed_targets.clone();
 
         use_effect_with((*is_timer_running, *game_over, *time_left), move |deps| {
@@ -413,7 +450,11 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
                 });
                 Box::new(move || drop(timeout)) as Box<dyn FnOnce()>
             } else if running && !over && current_time == 0 {
-                end_game.emit(((*buffer).clone(), (*completed_targets).clone()));
+                end_game.emit((
+                    (*buffer).clone(),
+                    (*completed_targets).clone(),
+                    (*path).clone(),
+                ));
                 Box::new(|| {}) as Box<dyn FnOnce()>
             } else {
                 Box::new(|| {}) as Box<dyn FnOnce()>
@@ -429,6 +470,7 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
     // внутри собранной последовательности.
     let on_cell_click = {
         let buffer = buffer.clone();
+        let path = path.clone();
         let is_row_turn = is_row_turn.clone();
         let active_index = active_index.clone();
         let used_cells = used_cells.clone();
@@ -449,6 +491,7 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
 
             let mut current_used = (*used_cells).clone();
             let mut current_buffer = (*buffer).clone();
+            let mut current_path = (*path).clone();
             let mut current_completed = (*completed_targets).clone();
 
             if current_buffer.len() >= MAX_BUFFER || current_used.contains(&(r, c)) {
@@ -464,6 +507,7 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
             if is_valid_move {
                 current_used.insert((r, c));
                 current_buffer.push(matrix[r][c].clone());
+                current_path.push((r, c));
 
                 let buffer_str = current_buffer.join("");
                 for (i, target) in targets.iter().enumerate() {
@@ -475,12 +519,13 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
 
                 used_cells.set(current_used);
                 buffer.set(current_buffer.clone());
+                path.set(current_path.clone());
                 completed_targets.set(current_completed.clone());
                 is_row_turn.set(!*is_row_turn);
                 active_index.set(if *is_row_turn { c } else { r });
 
                 if current_buffer.len() >= MAX_BUFFER || current_completed.len() == targets.len() {
-                    end_game.emit((current_buffer, current_completed));
+                    end_game.emit((current_buffer, current_completed, current_path));
                 }
             }
         })
@@ -776,6 +821,9 @@ pub fn run_app() {
         time_limit: 30,
         locale: Some("en".to_string()),
         theme: None,
+        matrix: None,
+        targets: None,
+        session_id: None,
     };
 
     yew::Renderer::<CyberHackGame>::with_props(GameProps {
@@ -833,10 +881,10 @@ mod tests {
     #[test]
     fn test_dict_fallback() {
         let dict_en = get_dict("en");
-        assert_eq!(dict_en.title, "Breach Protocol");
+        assert_eq!(dict_en.title, "BREACH PROTOCOL");
 
         // Неизвестный язык должен отдавать русский
         let dict_fr = get_dict("fr");
-        assert_eq!(dict_fr.title, "Взлом протокола");
+        assert_eq!(dict_fr.title, "ВЗЛОМ ПРОТОКОЛА");
     }
 }
