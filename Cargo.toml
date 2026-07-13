@@ -21,12 +21,21 @@ gloo-timers = "0.3.0"
 [dependencies.web-sys]
 version = "0.3"
 features = [
-  "Window", 
-  "Document", 
-  "Location", 
-  "Element", 
+  "Window",
+  "Document",
+  "Location",
+  "Element",
   "HtmlElement",
   "MessageEvent",
   "HtmlCanvasElement",
   "CanvasRenderingContext2d"
 ]
+
+[features]
+# Включён по умолчанию ради `trunk serve` (см. run_app() в src/lib.rs) —
+# там это единственный способ увидеть игру без реального бэкенда. Продовая
+# сборка (`build:wasm` в package.json) обязана передавать
+# `--no-default-features`, иначе этот же debug-моунт в document.body
+# оказывается и в npm-пакете, который грузит HackGame.tsx.
+default = ["standalone-debug"]
+standalone-debug = []

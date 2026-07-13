@@ -824,10 +824,19 @@ pub fn init_cyber_hack(element_id: &str, config_json: &str) -> Result<(), JsValu
 /// `#[wasm_bindgen(start)]` запускает эту функцию автоматически сразу после
 /// загрузки wasm-модуля — то есть при каждом `init()` из JS, а не только
 /// в `trunk serve`. `Renderer::with_props` без `with_root` монтирует
-/// компонент в `document.body`. Это используется для локальной отладки
-/// через `trunk serve` (см. `npm run dev`), но означает, что у любого
-/// потребителя npm-пакета эта debug-игра тоже отрендерится в body в
-/// дополнение к игре, смонтированной через `initCyberHack`.
+/// компонент в `document.body`. Раньше это было безусловным: любой
+/// потребитель npm-пакета (см. `initCyberHack` ниже, вызываемый из
+/// `Cyberhack.tsx`) параллельно получал ВТОРОЙ, независимый экземпляр игры
+/// прямо в body — с своим таймером (30с вместо реальных 45), своим
+/// `base_value: 10` (вместо серверных 50) и, главное, с захардкоженным
+/// `redirect_url: "/debug"` — несуществующим SPA-роутом. Именно этот
+/// debug-инстанс, доигранный до конца, слал `window.location.assign`
+/// на `/debug?coins=N`, давая пустой экран и цифру награды, не совпадающую
+/// ни с чем в реальной игре. `standalone-debug` включён по умолчанию (нужен
+/// для `trunk serve`), но продовая сборка (`build:wasm` в package.json)
+/// собирает пакет с `--no-default-features`, так что в npm-пакете, который
+/// грузит `HackGame.tsx`, этой функции просто нет.
+#[cfg(feature = "standalone-debug")]
 #[wasm_bindgen(start)]
 pub fn run_app() {
     let debug_config = GameConfig {
