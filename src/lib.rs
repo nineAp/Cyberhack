@@ -417,11 +417,26 @@ pub fn cyber_hack_game(props: &GameProps) -> Html {
                         let _ = win.post_message(&JsValue::from_str(&json_str), "*");
                     }
 
-                    let url = format!("{}?coins={}", redirect_url, total_coins);
-                    Timeout::new(2500, move || {
-                        let _ = win.location().assign(&url);
-                    })
-                    .forget();
+                    // Пустой redirect_url — сигнал от JS-обёртки (см.
+                    // Cyberhack.tsx/HackGame.tsx), что интеграция сама
+                    // обрабатывает результат через onComplete/postMessage
+                    // (server-authoritative SPA-режим) и сама решает, куда
+                    // навигировать. Раньше здесь безусловно планировался
+                    // жёсткий `location.assign` даже с пустым URL — то есть
+                    // через 2.5с ВСЕГДА происходил полный релоад страницы
+                    // (`?coins=N` от пустой строки), независимо от того, что
+                    // уже сделал React: если запрос на сервер (submitHackResult)
+                    // к этому моменту не успел завершиться, релоад обрывал его
+                    // на середине — награда не зачислялась, а билет позже
+                    // возвращался как за "брошенную" сессию. Плюс сам релоад —
+                    // видимый "чёрный экран" при перезагрузке SPA.
+                    if !redirect_url.is_empty() {
+                        let url = format!("{}?coins={}", redirect_url, total_coins);
+                        Timeout::new(2500, move || {
+                            let _ = win.location().assign(&url);
+                        })
+                        .forget();
+                    }
                 }
             },
         )
